@@ -4,11 +4,18 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
 
   def start(*args)
     keyboard
-    respond_with :message, text: "Please enter that value in User edit page: #{from['id']}"
+    @user = User.find_by(telegram_id: from['id'])
+    if @user
+      respond_with :message, text: "Hello #{@user.name}! Welcome back!"
+    else
+      respond_with :message, text: "Please enter your name :)"
+      md5ofid = from['id'].md5
+      session[:memo] = md5ofid
+    end
   end
 
   def all(*args)
-    @user = User.find_by(telegram_id: from['id'])
+    @bank = User.find_by(telegram_id: from['id'])
     @notes = Note.where(user_id: @user.id)
     @notes.each do |reply|
       respond_with :message, text: "#{reply[:title]}: #{reply[:content]}! Appointment: #{reply[:appointment]}"
@@ -40,7 +47,13 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
   end
 
   def message(message)
-    respond_with :message, text: "#{message['text']}"
+    if from['id'].md5 == session[:memo]
+      session.delete(:memo)
+      params.permit(user_name: message, telegram_id: from['id'])
+      @user = User.new(params)
+      @user.save
+    end
+    respond_with :message, text: "Welcome #{message['text']}!"
   end
 
   private
