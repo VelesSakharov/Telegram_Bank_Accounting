@@ -4,22 +4,33 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
 
   def start(*args)
     keyboard
-    @user = User.find_by(telegram_id: from['id'])
-    if @user
-      respond_with :message, text: "Hello #{@user.name}! Welcome back!"
+    if(User.find_by(telegram_id: from['id']))
+      respond_with :message, text: "Hello #{User.find_by(telegram_id: from['id']).user_name}! Welcome back!"
     else
-      respond_with :message, text: "Please enter your name :)"
-      md5ofid = from['id'].md5
-      session[:memo] = md5ofid
+      @user = User.new(telegram_id: from['id'])
+      @user.save
+      respond_with :message, text: "Add your Nick :)"
+      @@session = Hash.new
+      @@session[from['id'].to_s.to_sym] = "Wait_nick"
     end
   end
 
   def all(*args)
-    @bank = User.find_by(telegram_id: from['id'])
-    @notes = Note.where(user_id: @user.id)
-    @notes.each do |reply|
-      respond_with :message, text: "#{reply[:title]}: #{reply[:content]}! Appointment: #{reply[:appointment]}"
+    @user = User.find_by(telegram_id: from['id'])
+    @accounts = Account.where(user_id: @user.id)
+    keyboard = []
+    @accounts.each do |reply|
+      keyboard.push(reply.name)
     end
+
+      respond_with :message, text: "List of Your accounts", reply_markup: {
+          keyboard:[ keyboard
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: true,
+          selective: true
+      }
+    #"#{reply[:title]}: #{reply[:content]}! Appointment: #{reply[:appointment]}"
   end
 
   def remind
@@ -37,7 +48,7 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
     else
       save_context :keyboard
       respond_with :message, text: "Now You're using keyboard", reply_markup: {
-          keyboard:[ %W(/all /keyboard /remind)
+          keyboard:[ %W(/all /keyboard /remind /add_account)
           ],
           resize_keyboard: true,
           one_time_keyboard: false,
@@ -46,17 +57,37 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
     end
   end
 
+  #TODO: Add switch-case for that method
   def message(message)
-    if from['id'].md5 == session[:memo]
-      session.delete(:memo)
+    if @@session[from['id'].to_s.to_sym] == "Wait_nick"
+      @@session.delete(from['id'])
       params.permit(user_name: message, telegram_id: from['id'])
       @user = User.new(params)
       @user.save
+      respond_with :message, text: "Welcome #{message['text']}!"
     end
-    respond_with :message, text: "Welcome #{message['text']}!"
+    if @@session[from['id'].to_s.to_sym] == "Wait_account"
+      @@session.delete(from['id'].to_s.to_sym)
+      params.permit(name: message, user_id: User.find_by(telegram_id: from['id']).id)
+      pp params.user_id
+      @account = Account.new(params)
+      @account.save
+      respond_with :message, text: "Account #{message} succesfully added :)"
+    end
+
+  end
+
+  def add_account
+    send_method_responce("Add name to Your account: ")
+    @@session = Hash.new
+    @@session[from['id'].to_s.to_sym] = "Wait_account"
   end
 
   private
+
+  def send_method_responce(message)
+    respond_with :message, text: "#{message}"
+  end
 
   def fetch_update_params
     a =
