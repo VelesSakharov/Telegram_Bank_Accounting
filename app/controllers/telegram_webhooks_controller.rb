@@ -48,7 +48,7 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
     else
       save_context :keyboard
       respond_with :message, text: "Now You're using keyboard", reply_markup: {
-          keyboard:[ %W(/all /keyboard /remind /add_account)
+          keyboard:[ %W(/start /all /keyboard /remind /add_account)
           ],
           resize_keyboard: true,
           one_time_keyboard: false,
@@ -61,18 +61,16 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
   def message(message)
     if @@session[from['id'].to_s.to_sym] == "Wait_nick"
       @@session.delete(from['id'])
-      params.permit(user_name: message, telegram_id: from['id'])
-      @user = User.new(params)
+      @user = User.find_by(telegram_id: from['id'])
+      @user.user_name = message['text']
       @user.save
       respond_with :message, text: "Welcome #{message['text']}!"
     end
     if @@session[from['id'].to_s.to_sym] == "Wait_account"
       @@session.delete(from['id'].to_s.to_sym)
-      params.permit(name: message, user_id: User.find_by(telegram_id: from['id']).id)
-      pp params.user_id
-      @account = Account.new(params)
+      @account = Account.new(name: message['text'], user_id: User.find_by(telegram_id: from['id']).id)
       @account.save
-      respond_with :message, text: "Account #{message} succesfully added :)"
+      respond_with :message, text: "Account #{message['text']} succesfully added :)"
     end
 
   end
