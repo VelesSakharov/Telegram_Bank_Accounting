@@ -76,14 +76,14 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
   end
 
   def add_account
-    send_method_responce("Add name to Your account: ")
+    send_method_response("Add name to Your account: ")
     @@session = Hash.new
     @@session[from['id'].to_s.to_sym] = "Wait_account"
   end
 
   private
 
-  def send_method_responce(message)
+  def send_method_response(message)
     respond_with :message, text: "#{message}"
   end
 
